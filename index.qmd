@@ -1,0 +1,80 @@
+---
+title: "Vegetation Departure for WDFFP Focal Areas"
+author: "Randy Swaty"
+---
+
+
+<font size="4"> 
+**These LANDFIRE-Powered Landscape Assessments allow users to start exploring trends, landscape conversion and natural resource management options. **
+
+</font> 
+
+
+## Goals of this demonstration
+
+We will use [LANDFIRE](https://landfire.gov/){target="blank"} products to:
+
+1. Characterize and map past and present ecosystem conditions
+2. Explore historical disturbance patterns
+3. Summarize patterns of change and management opportunities
+
+
+
+
+## Location
+
+The SRFSN Black Hills Subregion streches across portions of western South Dakota, eastern Wyoming and northwestern Nebraska.
+
+
+<br>
+
+```{r libraries, message=FALSE, warning=FALSE, include=FALSE}
+
+library(foreign)
+library(sf)
+library(terra)
+library(tidyverse)
+library(raster)
+
+
+```
+
+
+```{r read shapefile, message=FALSE, warning=FALSE, include=FALSE}
+#  read shape
+shp <- st_read("data/") %>% 
+  st_transform(crs = 5070) %>%
+  st_union() %>%
+  st_sf()
+```
+
+```{r locator map, message=FALSE, warning=FALSE, echo=FALSE}
+library(tmap)
+
+# toggle tmap mode to interactive viewing
+tmap_mode("view")
+
+# create a quick interactive map
+quickmap <- qtm(shp, 
+                borders = "darkgreen", 
+                fill = NULL, 
+                check.and.fix = TRUE, 
+                basemaps = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+                title = 'Black Hills Subregion',)
+
+quickmap
+
+
+
+```
+
+## How to use this web report
+
+* All maps, input datasets and further assistance can be obtained by contacting the author, [Randy Swaty](mailto:rswaty@tnc.org){target="blank"}, Nature Conservancy Ecologist, Conservation Data Lab co-lead
+* Review is ongoing
+* To share this web app, simply share the hyperlink
+* Toggle between dark and light display of this site in the upper right corner of the page
+* Learn more about LANDFIRE and The Nature Conservancy [here](about.qmd){target="blank}.   
+
+
+

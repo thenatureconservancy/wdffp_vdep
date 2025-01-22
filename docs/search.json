@@ -1,0 +1,51 @@
+[
+  {
+    "objectID": "wrangle.html#packages",
+    "href": "wrangle.html#packages",
+    "title": "Wrangle and Calculate VDEP",
+    "section": "Packages",
+    "text": "Packages\nAimed for a minimum; though went with the Tidyverse way of coding and cheated column naming with the janitor package.\n\nlibrary(janitor)\n\nWarning: package 'janitor' was built under R version 4.2.3\n\n\n\nAttaching package: 'janitor'\n\n\nThe following objects are masked from 'package:stats':\n\n    chisq.test, fisher.test\n\nlibrary(tidyverse)\n\nWarning: package 'tidyverse' was built under R version 4.2.3\n\n\nWarning: package 'ggplot2' was built under R version 4.2.3\n\n\nWarning: package 'tibble' was built under R version 4.2.3\n\n\nWarning: package 'tidyr' was built under R version 4.2.3\n\n\nWarning: package 'readr' was built under R version 4.2.3\n\n\nWarning: package 'purrr' was built under R version 4.2.3\n\n\nWarning: package 'stringr' was built under R version 4.2.3\n\n\nWarning: package 'forcats' was built under R version 4.2.3\n\n\nWarning: package 'lubridate' was built under R version 4.2.3\n\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4.9000     ✔ readr     2.1.5     \n✔ forcats   1.0.0          ✔ stringr   1.5.1     \n✔ ggplot2   3.5.1          ✔ tibble    3.2.1     \n✔ lubridate 1.9.3          ✔ tidyr     1.3.1     \n✔ purrr     1.0.2          \n\n\n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors"
+  },
+  {
+    "objectID": "wrangle.html#input-data",
+    "href": "wrangle.html#input-data",
+    "title": "Wrangle and Calculate VDEP",
+    "section": "Input data",
+    "text": "Input data\nFirst data read in is the raw data from an ArcGIS Combine of:\n\nA rasterized file of the WDFFP focal areas, from the WDFFP “FSR_Firesheds_Projects_MEL.gdb” &gt; FSR_PA.shp &gt; non_null values from the “Focal_Geog” attribute.\nLANDFIRE Biophysical Settings (BpS)\nLANDFIRE Succession classes (Scls) for 2020 and 2022\n\nMinimal fields were joined in using the Join Field tool in ArcGIS Pro.\nRenaming of fields minimized; only changed when needed to prevent confusion.\n\nbase_data &lt;- read.csv(\"data/combine.csv\") %&gt;%\n  clean_names() %&gt;%\n  rename(c(\n    scls_2020 = label,\n    scls_2022 = label_1\n  ))\n\nhead(base_data)\n\n  value count wdffp_pas_r lc20_bps_220 lc20_s_cla_220 lc22_s_cla_230\n1     1  7327         107          738              1              1\n2     2   769         107          731              1              3\n3     3  1588         107          738            132            132\n4     4  9800         107           31            132            132\n5     5  2232         107          756            132            132\n6     6  3857         107          731            132            132\n    bps_model\n1   10680_1_7\n2 10460_1_7_9\n3   10680_1_7\n4           0\n5     11710_1\n6 10460_1_7_9\n                                                                    bps_name\n1 North Pacific Dry and Mesic Alpine Dwarf-Shrubland or Fell-field or Meadow\n2                    Northern Rocky Mountain Subalpine Woodland and Parkland\n3 North Pacific Dry and Mesic Alpine Dwarf-Shrubland or Fell-field or Meadow\n4                                                      Barren-Rock/Sand/Clay\n5                           North Pacific Alpine and Subalpine Dry Grassland\n6                    Northern Rocky Mountain Subalpine Woodland and Parkland\n         scls_2020        scls_2022\n1                A                A\n2                A                C\n3 Barren or Sparse Barren or Sparse\n4 Barren or Sparse Barren or Sparse\n5 Barren or Sparse Barren or Sparse\n6 Barren or Sparse Barren or Sparse"
+  },
+  {
+    "objectID": "wrangle.html#mock-spreadsheets",
+    "href": "wrangle.html#mock-spreadsheets",
+    "title": "Wrangle and Calculate VDEP",
+    "section": "Mock spreadsheets",
+    "text": "Mock spreadsheets"
+  },
+  {
+    "objectID": "wrangle.html#wrangle",
+    "href": "wrangle.html#wrangle",
+    "title": "Wrangle and Calculate VDEP",
+    "section": "Wrangle",
+    "text": "Wrangle"
+  },
+  {
+    "objectID": "gis.html",
+    "href": "gis.html",
+    "title": "GIS methods",
+    "section": "",
+    "text": "Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see https://quarto.org."
+  },
+  {
+    "objectID": "gis.html#quarto",
+    "href": "gis.html#quarto",
+    "title": "GIS methods",
+    "section": "",
+    "text": "Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see https://quarto.org."
+  },
+  {
+    "objectID": "gis.html#running-code",
+    "href": "gis.html#running-code",
+    "title": "GIS methods",
+    "section": "Running Code",
+    "text": "Running Code\nWhen you click the Render button a document will be generated that includes both content and the output of embedded code. You can embed code like this:\n\n1 + 1\n\n[1] 2\n\n\nYou can add options to executable code like this\n\n\n[1] 4\n\n\nThe echo: false option disables the printing of code (only output is displayed)."
+  }
+]
