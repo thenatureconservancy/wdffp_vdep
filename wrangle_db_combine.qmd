@@ -1,0 +1,149 @@
+---
+title: "Wrangle and Calculate VDEP"
+format: html
+---
+
+## Goal
+
+## Packages
+
+Aimed for a minimum; though went with the [Tidyverse](https://www.tidyverse.org/) way of coding and cheated column naming with the [janitor](https://sfirke.github.io/janitor/) package.
+
+```{r}
+#| label: load packages
+#| echo: true
+#| message: false
+#| warning: false
+
+library(janitor)
+library(tidyverse)
+```
+
+
+## Input data
+
+
+### Combine from ArcGIS pro for current conditions
+
+First data read in is the raw data from an ArcGIS [Combine](https://pro.arcgis.com/en/pro-app/3.3/tool-reference/spatial-analyst/combine.htm) of:
+
+1. A rasterized file of the WDFFP focal areas, from the WDFFP "FSR_Firesheds_Projects_MEL.gdb" > FSR_PA.shp > non_null values from the "Focal_Geog" attribute.
+2. LANDFIRE [Biophysical Settings (BpS)](https://landfire.gov/vegetation/bps)
+3. LANDFIRE [Succession classes (Scls)](https://landfire.gov/vegetation/sclass) for 2020 and 2022
+
+Minimal fields were joined in using the [Join Field](https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/join-field.htm) tool in ArcGIS Pro.
+
+Renaming of fields minimized; only changed when needed to prevent confusion.
+
+### Reference conditions
+
+Second input dataset is a wrangled "Reference Conditions" table, where the original (downloadable from https://landfire.gov/vegetation/bps-models) was modified in the following ways:
+
+1. Current succession classes added: Agriculture, Developed, Water, UN and UE.
+2. Dataset pivoted from wide to long (pivot_longer function from Tidyverse package)
+3. model_label field was added by unioning the bps_model and label fields.  This was added for later use in joining. 
+4. Fields rename using snake case.
+
+### Issues and futuring
+
+This code is based on combining BpS with two years of succession class data (i.e., 2020 and 2022).  Adding additional years may cause complications.  We did not test methods for this.  It may be that doing separate combines for each year (e.g., BpS and slcs 2020) then wrangling/merging all of those datasets is the best long-term approach. 
+
+
+```{r}
+#| label: read in input datasets
+#| echo: true
+#| message: false
+#| warning: false
+
+base_data <- read.csv("data/combine.csv") %>%
+  clean_names() %>%
+  rename(c(
+    scls_2020 = label,
+    scls_2022 = label_1
+  ))
+
+ref_con <- read.csv("data/ref_con_long.csv")
+```
+
+## Calculate scls percents per pa/scls/bps combination.  
+
+The key here is that we want the 2020 and 2022 scls percentages within each project area per scls for each bps_model.  Clear?
+
+To do this we:
+
+Remove unwanted sclss (labels are the same for 2020 and 2022-I checked.  Make sure to check moving forward).  Assuming unwanted scls values do not change over time.  This could introduce minor slop. 
+Get a total count (of pixels) per PA
+Get a total count for each BpS within each PA
+Make sure that final calculations for 2020 and 2022 are different and make sense
+
+
+```{r}
+#| label: calculate scls percents
+#| echo: true
+#| message: false
+#| warning: false
+
+scls_labels <- setequal(unique(base_data$scls_2020), unique(base_data$scls_2022))
+print(scls_labels) # should be true-so will use just one for removing unwanted rows
+
+# Add in total count per PA
+data_current <- base_data %>%
+  filter(!scls_2020 %in% c(
+    "Barren or Sparse",
+    "Water",
+    "Snow/Ice",
+    "Fill-Not Mapped"
+  )) %>%
+  group_by(wdffp_pas_r) %>%
+mutate(total_count_pa = sum(count))
+
+## matches exploration in Excel pivot table
+
+# Add in total count of BpS per PA
+data_current <- data_current %>%
+  group_by(wdffp_pas_r, bps_model) %>%
+  mutate(total_count_pa_bps = sum(count))
+
+## matches exploration in Excel pivot table
+
+# Add in count of each scls 2020 within each PA per BpS
+
+data_current <- data_current %>%
+  group_by(wdffp_pas_r, bps_model, scls_2020) %>%
+  mutate(count_pa_bps_scls_2020 = sum(count))
+
+## matches exploration in Excel pivot table
+
+# Add in count of each scls 2022 within each PA per BpS
+      
+data_current <- data_current %>%
+  group_by(wdffp_pas_r, bps_model, scls_2022) %>%
+  mutate(count_pa_bps_scls_2022 = sum(count))
+
+## matches exploration in Excel pivot table
+
+# Add in scls 2020 percents per BpS within each PA
+
+data_current <- data_current %>%
+  group_by(wdffp_pas_r, bps_model, scls_2020) %>%
+  mutate(mean_count_pa_bps_scls_2020 = mean(count_pa_bps_scls_2020),
+         percent_pa_bps_scls_2020 = round((mean_count_pa_bps_scls_2020 / total_count_pa_bps) * 100, 1))
+
+##NOTICED ISSUE WITH REDUNDANT COUNTS, E.G., DUE TO THE DOUBLE COMBINE THERE CAN BE MULTIPLE "A" FOR ONE YEAR.  FOR EXAMPLE YOU COULD HAVE PIXELS WITH A IN 2020, A IN 2022 (I.E.  NO CHANGE) OR A IN 2020 AND B IN 2022, SO YOU GET A DOULBE COUNT FOR CLASS A IN 2020.  
+
+
+```
+
+
+
+
+
+
+
+## Join in Reference Conditions
+
+Below we create a new working dataframe, then add in reference percents for each bps_model - scls combination.  To do so we:
+
+1. remove unwanted scls labels
+2. create "model_label_2020" and model_label_2022" columns by using the union function
+2. left_join ref_con model_labels for both model_label_2020 and model_label_2022 

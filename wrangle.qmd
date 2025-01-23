@@ -22,15 +22,21 @@ library(tidyverse)
 
 ## Input data
 
+
+### Combine from ArcGIS pro for current conditions
+
 First data read in is the raw data from an ArcGIS [Combine](https://pro.arcgis.com/en/pro-app/3.3/tool-reference/spatial-analyst/combine.htm) of:
 
 1. A rasterized file of the WDFFP focal areas, from the WDFFP "FSR_Firesheds_Projects_MEL.gdb" > FSR_PA.shp > non_null values from the "Focal_Geog" attribute.
 2. LANDFIRE [Biophysical Settings (BpS)](https://landfire.gov/vegetation/bps)
-3. LANDFIRE [Succession classes (Scls)](https://landfire.gov/vegetation/sclass) for 2020 and 2022
+3. LANDFIRE [Succession classes (Scls)](https://landfire.gov/vegetation/sclass) for 2020 and 2022 separately
+4. Exported attribute tables for [2020](data/combine2020.csv) and [2022](data/combine2022.csv)
 
 Minimal fields were joined in using the [Join Field](https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/join-field.htm) tool in ArcGIS Pro.
 
 Renaming of fields minimized; only changed when needed to prevent confusion.
+
+### Reference conditions
 
 Second input dataset is a wrangled "Reference Conditions" table, where the original (downloadable from https://landfire.gov/vegetation/bps-models) was modified in the following ways:
 
@@ -39,6 +45,11 @@ Second input dataset is a wrangled "Reference Conditions" table, where the origi
 3. model_label field was added by unioning the bps_model and label fields.  This was added for later use in joining. 
 4. Fields rename using snake case.
 
+### Issues and futuring
+
+
+### Reading in the datasets
+
 
 ```{r}
 #| label: read in input datasets
@@ -46,40 +57,29 @@ Second input dataset is a wrangled "Reference Conditions" table, where the origi
 #| message: false
 #| warning: false
 
-base_data <- read.csv("data/combine.csv") %>%
-  clean_names() %>%
-  rename(c(
-    scls_2020 = label,
-    scls_2022 = label_1
-  ))
+base_data_2020 <- read.csv("data/combine2020.csv") %>%
+  clean_names() 
+
+base_data_2022 <- read.csv("data/combine2022.csv") %>%
+  clean_names() 
 
 ref_con <- read.csv("data/ref_con_long.csv")
 ```
 
-## Calculate scls percents per pa/scls/bps combination.  
 
-The key here is that we want the 2020 and 2022 scls percentages within each project area per scls for each bps_model.  Clear?
-
-To do this we:
-
-Remove unwanted sclss (labels are the same for 2020 and 2022-I checked.  Make sure to check moving forward).  Assuming unwanted scls values do not change over time.  This could introduce minor slop. 
-Get a total count (of pixels) per PA
-Get a total count for each BpS within each PA
-Make sure that final calculations for 2020 and 2022 are different and make sense
-
+## 2020 data wrangling and calculating
 
 ```{r}
-#| label: calculate scls percents
+#| label: calculate scls 2020 percents
 #| echo: true
 #| message: false
 #| warning: false
 
-scls_labels <- setequal(unique(base_data$scls_2020), unique(base_data$scls_2022))
-print(scls_labels) # should be true-so will use just one for removing unwanted rows
 
-# add in total count per PA
-data_current <- base_data %>%
-  filter(!scls_2020 %in% c(
+
+# Add in total count per PA
+data_2020 <- base_data_2020 %>%
+  filter(!label %in% c(
     "Barren or Sparse",
     "Water",
     "Snow/Ice",
@@ -90,42 +90,120 @@ mutate(total_count_pa = sum(count))
 
 ## matches exploration in Excel pivot table
 
-# add in total count of BpS per PA
-data_current <- data_current %>%
+# Add in total count of BpS per PA
+data_2020 <- data_2020 %>%
   group_by(wdffp_pas_r, bps_model) %>%
   mutate(total_count_pa_bps = sum(count))
 
 ## matches exploration in Excel pivot table
 
-# add in count of each scls 2020 within each PA per BpS
+# Add in count of each scls 2020 within each PA per BpS
 
-data_current <- data_current %>%
-  group_by(wdffp_pas_r, bps_model, scls_2020) %>%
+data_2020 <- data_2020 %>%
+  group_by(wdffp_pas_r, bps_model, label) %>%
   mutate(count_pa_bps_scls_2020 = sum(count))
 
+
+# Add in scls 2020 percents per BpS within each PA
+data_2020 <- data_2020 %>%
+  group_by(wdffp_pas_r, bps_model) %>%
+  mutate(percent = 
+           round((count_pa_bps_scls_2020/total_count_pa_bps) * 100, 1))
+
+# Add a column for filtering the refcon (pa_bps_model)
+
+# Add a column for joining 
+
+data_2020 <- data_2020 %>%
+    unite(pa_bps_scl, c("wdffp_pas_r", "bps_model", "label"), remove = FALSE)
+
+
+
+write.csv(data_2020, file = 'data_2020.csv')
+```
+
+## 2022 data wrangling and calculating
+
+```{r}
+#| label: calculate scls 2022 percents
+#| echo: true
+#| message: false
+#| warning: false
+
+
+
+# Add in total count per PA
+data_2022 <- base_data_2022 %>%
+  filter(!label %in% c(
+    "Barren or Sparse",
+    "Water",
+    "Snow/Ice",
+    "Fill-Not Mapped"
+  )) %>%
+  group_by(wdffp_pas_r) %>%
+mutate(total_count_pa = sum(count))
+
 ## matches exploration in Excel pivot table
 
-# add in count of each scls 2022 within each PA per BpS
-      
-data_current <- data_current %>%
-  group_by(wdffp_pas_r, bps_model, scls_2022) %>%
+# Add in total count of BpS per PA
+data_2022 <- data_2022 %>%
+  group_by(wdffp_pas_r, bps_model) %>%
+  mutate(total_count_pa_bps = sum(count))
+
+## matches exploration in Excel pivot table
+
+# Add in count of each scls 2022 within each PA per BpS
+
+data_2022 <- data_2022 %>%
+  group_by(wdffp_pas_r, bps_model, label) %>%
   mutate(count_pa_bps_scls_2022 = sum(count))
 
-## matches exploration in Excel pivot table
 
+# Add in scls 2022 percents per BpS within each PA
+data_2022 <- data_2022 %>%
+  group_by(wdffp_pas_r, bps_model) %>%
+  mutate(percent = 
+           round((count_pa_bps_scls_2022/total_count_pa_bps) * 100, 1))
 
+# Add a column for joining 
+
+data_2022 <- data_2022 %>%
+    unite(pa_bps_scl, c("wdffp_pas_r", "bps_model", "label"), remove = FALSE)
+
+write.csv(data_2022, file = 'data_2022.csv')
 ```
 
 
 
+## Wrangle Ref Con 
+
+Need a 'replicate' for each PA and addition of the PA number
+
+
+```{r}
+#| label: build refcon
+#| echo: true
+#| message: false
+#| warning: false
+
+# Get list of PAs
+pas <- unique(base_data_2020$wdffp_pas_r)
+
+# Filter ref_con to relevant BpSs
+
+wdffp_bpss <- unique(base_data_2020$bps_model)
+
+filtered_ref_con <- ref_con %>%
+  filter(model_code %in% wdffp_bpss)
+
+
+wdffp_ref_con <- do.call(rbind, lapply(pas, function(pas) {
+  filtered_ref_con$pas <- pas
+  return(filtered_ref_con)
+}
+  ))
 
 
 
+```
 
-## Join in Reference Conditions
-
-Below we create a new working dataframe, then add in reference percents for each bps_model - scls combination.  To do so we:
-
-1. remove unwanted scls labels
-2. create "model_label_2020" and model_label_2022" columns by using the union function
-2. left_join ref_con model_labels for both model_label_2020 and model_label_2022 
