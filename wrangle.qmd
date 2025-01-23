@@ -78,7 +78,7 @@ scls_labels <- setequal(unique(base_data$scls_2020), unique(base_data$scls_2022)
 print(scls_labels) # should be true-so will use just one for removing unwanted rows
 
 # add in total count per PA
-data <- base_data %>%
+data_current <- base_data %>%
   filter(!scls_2020 %in% c(
     "Barren or Sparse",
     "Water",
@@ -91,7 +91,7 @@ mutate(total_count_pa = sum(count))
 ## matches exploration in Excel pivot table
 
 # add in total count of BpS per PA
-data <- data %>%
+data_current <- data_current %>%
   group_by(wdffp_pas_r, bps_model) %>%
   mutate(total_count_pa_bps = sum(count))
 
@@ -99,11 +99,19 @@ data <- data %>%
 
 # add in count of each scls 2020 within each PA per BpS
 
-data <- data %>%
+data_current <- data_current %>%
   group_by(wdffp_pas_r, bps_model, scls_2020) %>%
   mutate(count_pa_bps_scls_2020 = sum(count))
-      
 
+## matches exploration in Excel pivot table
+
+# add in count of each scls 2022 within each PA per BpS
+      
+data_current <- data_current %>%
+  group_by(wdffp_pas_r, bps_model, scls_2022) %>%
+  mutate(count_pa_bps_scls_2022 = sum(count))
+
+## matches exploration in Excel pivot table
 
 
 ```
