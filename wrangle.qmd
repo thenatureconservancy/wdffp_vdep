@@ -278,6 +278,8 @@ vdep_2020 <- vdep_2020 %>%
   group_by(pas) %>%
   mutate(pa_vdep = weighted.mean(pa_bps_vdep, total_count_pa_bps))
 
+write.csv(vdep_2020, "vdep_2020.csv")
+
 pa_vdep_2020 <- vdep_2020 %>%
   group_by(pas) %>%
   summarize(pa_vdep = mean(pa_vdep))
