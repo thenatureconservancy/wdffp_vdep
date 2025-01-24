@@ -76,53 +76,32 @@ ref_con <- read.csv("data/ref_con_long.csv")
 #| warning: false
 
 
-
-# Add in total count per PA
 data_2020 <- base_data_2020 %>%
+  group_by(wdffp_pas_r, bps_model, label) %>%
+  summarize(count = sum(count)) %>%
+  filter(!bps_model %in% c(
+    "10010",
+    "10020",
+    "10030",
+    "10040",
+    "10060",
+    "0", # snow/ice, water, barren/sparse
+    "-1111" )) %>% # fill not mapped
   filter(!label %in% c(
     "Barren or Sparse",
-    "Water",
-    "Snow/Ice",
-    "Fill-Not Mapped"
-  )) %>%
-  group_by(wdffp_pas_r) %>%
-mutate(total_count_pa = sum(count))
-
-## matches exploration in Excel pivot table
-
-# Add in total count of BpS per PA
-data_2020 <- data_2020 %>%
-  group_by(wdffp_pas_r, bps_model) %>%
-  mutate(total_count_pa_bps = sum(count))
-
-## matches exploration in Excel pivot table
-
-# Add in count of each scls 2020 within each PA per BpS
-
-data_2020 <- data_2020 %>%
-  group_by(wdffp_pas_r, bps_model, label) %>%
-  mutate(count_pa_bps_scls_2020 = sum(count))
+    "Agriculture",
+    "Developed")) %>%
+  unite(pa_bps, c("wdffp_pas_r", "bps_model"), remove = FALSE) %>%
+  unite(pa_bps_scl, c("wdffp_pas_r", "bps_model", "label"), remove = FALSE)
 
 
-# Add in scls 2020 percents per BpS within each PA
-data_2020 <- data_2020 %>%
-  group_by(wdffp_pas_r, bps_model) %>%
-  mutate(percent = 
-           round((count_pa_bps_scls_2020/total_count_pa_bps) * 100, 1))
-
-# Add a column for filtering the refcon (pa_bps_model)
-
-# Add a column for joining 
-
-data_2020 <- data_2020 %>%
-    unite(pa_bps_scl, c("wdffp_pas_r", "bps_model", "label"), remove = FALSE)
 
 
 
 write.csv(data_2020, file = 'data_2020.csv')
 ```
 
-## 2022 data wrangling and calculating
+## 2022 data wrangling and calculating NEED TO COPY 2020 CODE AS 
 
 ```{r}
 #| label: calculate scls 2022 percents
@@ -186,24 +165,126 @@ Need a 'replicate' for each PA and addition of the PA number
 #| message: false
 #| warning: false
 
-# Get list of PAs
-pas <- unique(base_data_2020$wdffp_pas_r)
+# Get list of PAs for filtering monster ref con
+pas <- unique(data_2020$wdffp_pas_r)
+
+# Get list of unique BpSs for filtering monster ref con
+wdffp_bpss <- unique(data_2020$bps_model)
 
 # Filter ref_con to relevant BpSs
-
-wdffp_bpss <- unique(base_data_2020$bps_model)
-
 filtered_ref_con <- ref_con %>%
   filter(model_code %in% wdffp_bpss)
 
-
+# Build Monster Ref Con
 wdffp_ref_con <- do.call(rbind, lapply(pas, function(pas) {
   filtered_ref_con$pas <- pas
   return(filtered_ref_con)
 }
   ))
 
+# Filter monster ref_con by pa_bps combo
 
+# add pa+bps column
+wdffp_ref_con <- wdffp_ref_con  %>%
+  unite(pa_bps, c("pas", "model_code"), remove = FALSE)
+
+# get list of unique
+pa_bps_unique <- unique(data_2020$pa_bps)
+
+
+# filter by pa_bps_unique
+wdffp_ref_con <- wdffp_ref_con %>%
+  filter(pa_bps %in% pa_bps_unique)
+
+# Add in pa_bps_scl column
+wdffp_ref_con <- wdffp_ref_con  %>%
+  unite(pa_bps_scl, c("pas", "model_code", "ref_label"), remove = FALSE)
+
+
+wdffp_ref_con <- wdffp_ref_con %>%
+  filter(!ref_label %in% c(
+    "Agriculture",
+    "Developed",
+    "Water" ))
 
 ```
+
+
+
+## Join Ref Con and Current; clean-up; calculate VDEP
+
+### 2020
+
+
+```{r}
+
+# Remove extra columns from ref_con before joining so we don't get duplicate columns with .x and .y
+wdffp_ref_con_join <- wdffp_ref_con %>%
+  select(-c(bps_name))
+
+# Remove extra columns from data_2020 before joining so we don't get duplicate columns with .x and .y
+
+data_2020 <- data_2020 %>%
+  select(-c(pa_bps))
+
+# write.csv(wdffp_ref_con_join, file = "clean_ref_con.csv")
+  
+
+vdep_2020 <- wdffp_ref_con_join %>%
+  left_join(data_2020, by = "pa_bps_scl")
+
+
+vdep_2020 <- vdep_2020 %>%
+  select(-c(
+    "wdffp_pas_r",
+    "bps_model",
+    "label" )) %>% 
+  mutate(count = ifelse(is.na(count), 0, count)) %>%
+  mutate(ref_percent = ifelse(is.na(ref_percent), 0, ref_percent))
+
+# Add column with total count per pa
+vdep_2020 <- vdep_2020 %>%
+  group_by(pas) %>%
+mutate(total_count_pa = sum(count))
+
+# Add in total count of BpS per PA
+vdep_2020 <- vdep_2020 %>%
+  group_by(pas, model_code) %>%
+  mutate(total_count_pa_bps = sum(count))
+
+# Add in count of each scls 2020 within each PA per BpS
+
+vdep_2020 <- vdep_2020 %>%
+  group_by(pas, model_code, ref_label) %>%
+  mutate(count_pa_bps_scls_2020 = sum(count))
+
+
+# Add in scls 2020 percents per BpS within each PA
+vdep_2020 <- vdep_2020 %>%
+  group_by(pas, model_code) %>%
+  mutate(percent_2020 =
+           round((count_pa_bps_scls_2020/total_count_pa_bps) * 100, 1))
+
+# Add 'similarity' column
+vdep_2020 <- vdep_2020 %>%
+  mutate(similarity = pmin(ref_percent, percent_2020))
+
+# Calculate VDEP per pa_bps
+vdep_2020 <- vdep_2020 %>%
+  mutate(pa_bps_vdep = (100 - sum(similarity))) 
+
+
+vdep_2020 <- vdep_2020 %>%
+  group_by(pas) %>%
+  mutate(pa_vdep = weighted.mean(pa_bps_vdep, total_count_pa_bps))
+
+pa_vdep_2020 <- vdep_2020 %>%
+  group_by(pas) %>%
+  summarize(pa_vdep = mean(pa_vdep))
+
+write.csv(pa_vdep_2020, "pa_vdep_2020.csv")
+
+```
+
+
 
